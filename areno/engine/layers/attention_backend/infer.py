@@ -347,6 +347,9 @@ def _store_prefill_cache(
 
     if meta.cache_block_ids is None or meta.cache_block_offsets is None:
         raise ValueError("prefill inference requires cache_block_ids and cache_block_offsets")
+    if meta.cache_write_indices is not None:
+        key = key.index_select(0, meta.cache_write_indices)
+        value = value.index_select(0, meta.cache_write_indices)
     # Each token gets explicit (block_id, offset) coordinates assigned by
     # the scheduler, so a single vectorized index_put places the prompt.
     k_cache.index_put_((meta.cache_block_ids, meta.cache_block_offsets), key)

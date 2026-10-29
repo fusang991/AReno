@@ -1,0 +1,42 @@
+{
+  "baseline_commit": "74cdb6be6860ce15b0590ff22f1b0fe0aa005298",
+  "candidate_commit": "74cdb6be6860ce15b0590ff22f1b0fe0aa005298",
+  "atol": 0.01,
+  "rtol": 0.01,
+  "max_abs_logprob_error": 0.0,
+  "compared_logprobs": 768,
+  "baseline": {
+    "median_wall_s": 40.451743214005546,
+    "peak_allocated_bytes": 9415303168,
+    "peak_reserved_bytes": 10232004608,
+    "pool_blocks": [
+      68
+    ],
+    "peak_live_blocks_by_category": {
+      "prompt_full": 64,
+      "prompt_tail": 0,
+      "response_extra": 4
+    },
+    "median_logical_prefill_tokens_per_s": 411.32215041368966,
+    "median_physical_prefill_tokens_per_s": 411.32215041368966,
+    "median_decode_tokens_per_s": 104.31393476451672,
+    "median_cache_management_ms": 1.1425600051879883
+  },
+  "candidate": {
+    "median_wall_s": 40.40826483500132,
+    "peak_allocated_bytes": 8005853184,
+    "peak_reserved_bytes": 8805941248,
+    "pool_blocks": [
+      20
+    ],
+    "peak_live_blocks_by_category": {
+      "prompt_full": 16,
+      "prompt_tail": 0,
+      "response_extra": 4
+    },
+    "median_logical_prefill_tokens_per_s": 411.37136751927267,
+    "median_physical_prefill_tokens_per_s": 411.37136751927267,
+    "median_decode_tokens_per_s": 111.41173865352778,
+    "median_cache_management_ms": 1.1341440081596375
+  }
+}

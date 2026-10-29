@@ -20,6 +20,7 @@ High-level responsibilities:
 
 from __future__ import annotations
 
+import logging
 from collections.abc import Callable
 from itertools import count
 from typing import Any
@@ -55,6 +56,52 @@ from areno.engine.runtime.decode_graph import ceil_div
 from areno.engine.runtime.rollout import _build_rollout_from_rows, _merge_dp_rollouts_in_input_order, _merge_rollouts
 from areno.engine.worker import ArenoWorker
 from areno.models.registry import config_from_hf
+
+logger = logging.getLogger(__name__)
+
+
+def _shared_prompt_kv_plan(
+    config: EngineConfig,
+    prompts: list[list[int]],
+    prompt_features: list[dict[str, Any] | None] | None,
+    group_size: int,
+    max_running_seqs: int,
+    max_new_tokens: int,
+    baseline_blocks: int,
+    max_prefill_tokens: int,
+) -> tuple[int, int]:
+    """Plan a per-rollout shared pool, or fall back to independent requests."""
+    if not getattr(config.runtime, "share_prompt_kv", False) or group_size == 1:
+        return 1, baseline_blocks
+    reason = None
+    if group_size < 1 or len(prompts) % group_size:
+        reason = "incomplete sample groups"
+    elif config.runtime.device_type != "cuda" or config.tp_size != 1 or int(config.dp_size) != 1:
+        reason = "only single-GPU CUDA rollout is supported"
+    elif config.model.model_type != "qwen3":
+        reason = "only the Qwen3 dense model is supported"
+    elif len(prompts) > max_running_seqs:
+        reason = "all samples must fit in the running sequence budget"
+    elif sum(len(prompt) for prompt in prompts) > max_prefill_tokens:
+        reason = "chunked prefill is not supported for shared prompt batches"
+    elif prompt_features is not None and any(feature is not None for feature in prompt_features):
+        reason = "multimodal or custom prompt features are unsupported"
+    elif any(
+        any(row != prompts[start] for row in prompts[start : start + group_size])
+        for start in range(0, len(prompts), group_size)
+    ):
+        reason = "sample group tokens differ"
+    if reason is not None:
+        logger.warning("shared prompt KV disabled for this rollout: %s; using independent caches", reason)
+        return 1, baseline_blocks
+
+    block_size = config.runtime.kv_block_size
+    num_blocks = sum(
+        len(prompts[start]) // block_size
+        + group_size * ceil_div(len(prompts[start]) % block_size + max_new_tokens, block_size)
+        for start in range(0, len(prompts), group_size)
+    )
+    return group_size, num_blocks
 
 
 def _merge_async_dp_rollouts(outputs: list[RolloutOutput | None], *, total_count: int) -> RolloutOutput:
@@ -278,6 +325,7 @@ class ArenoEngine:
         prompt_features: list[dict[str, Any] | None] | None = None,
         decode_progress_interval_s: float = 0.0,
         cancel_flags: torch.Tensor | None = None,
+        prompt_group_size: int = 1,
     ) -> RolloutOutput:
         """Generate rollout tokens for pre-tokenized prompts.
 
@@ -325,6 +373,16 @@ class ArenoEngine:
             rollout_max_cache_len,
         )
         max_blocks_per_seq = ceil_div(max_cache_len, self.config.runtime.kv_block_size)
+        group_size, num_blocks = _shared_prompt_kv_plan(
+            self.config,
+            prompts,
+            prompt_features,
+            prompt_group_size,
+            local_max_running_prompts,
+            max_new_tokens,
+            local_max_running_prompts * max_blocks_per_seq,
+            max_prefill_tokens,
+        )
         # Blocking RPC: returns one result per rank after every prompt finishes
         # (or the cancel flag fires).
         results = self.cluster.call(
@@ -340,13 +398,14 @@ class ArenoEngine:
                 max_cache_len=max_cache_len,
                 max_blocks_per_seq=max_blocks_per_seq,
                 max_prefill_tokens=max_prefill_tokens,
-                num_blocks=local_max_running_prompts * max_blocks_per_seq,
+                num_blocks=num_blocks,
                 block_size=self.config.runtime.kv_block_size,
                 decode_progress_interval_s=decode_progress_interval_s,
                 cancel_flags=cancel_flags,
                 cancel_indices_by_dp=split_list_by_dp(list(range(len(prompts))), dp_size)
                 if cancel_flags is not None
                 else None,
+                prompt_group_size=group_size,
             ),
         )
         # Drop TP duplicates (only DP rank 0 carries real results) and re-order

@@ -688,7 +688,7 @@ class ArenoWorker:
 def _rollout_payloads_compatible(first: RolloutPayload, other: RolloutPayload) -> bool:
     """Return whether two rollout payloads can share one InferenceBatchState."""
 
-    if other.cancel_flags is not None:
+    if other.cancel_flags is not None or first.prompt_group_size > 1 or other.prompt_group_size > 1:
         return False
     return (
         first.max_new_tokens == other.max_new_tokens

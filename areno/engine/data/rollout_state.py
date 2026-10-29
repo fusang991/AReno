@@ -36,6 +36,7 @@ class InferenceBatchState:
         kv_block_size: int = 256,
         num_cache_blocks: int | None = None,
         prompt_features: list[dict | None] | None = None,
+        prompt_group_size: int = 1,
     ):
         """Create rollout state and reserve bookkeeping for paged KV blocks."""
 
@@ -50,6 +51,17 @@ class InferenceBatchState:
         self.finish_reason = ["" for _ in prompts]
         self.metrics: dict[str, float] = {}
         self.max_running_seqs = max_running_seqs or len(prompts)
+        self.prompt_group_size = prompt_group_size
+        if prompt_group_size < 1 or len(prompts) % prompt_group_size:
+            raise ValueError("prompt groups must contain a positive, equal number of samples")
+        if prompt_group_size > 1:
+            if len(prompts) > self.max_running_seqs:
+                raise ValueError("shared prompt batches must fit in the running sequence budget")
+            if any(feature is not None for feature in self.prompt_features):
+                raise ValueError("shared prompt batches do not support prompt features")
+            for start in range(0, len(prompts), prompt_group_size):
+                if any(prompt != prompts[start] for prompt in prompts[start : start + prompt_group_size]):
+                    raise ValueError("samples in a shared prompt group must have identical tokens")
         self._max_cache_len = max_cache_len or max(len(prompt) + max_new_tokens for prompt in prompts)
         self.max_prefill_tokens = max_prefill_tokens
         self.kv_block_size = kv_block_size
@@ -57,6 +69,7 @@ class InferenceBatchState:
         self.num_cache_blocks = num_cache_blocks or self.max_running_seqs * self.max_blocks_per_seq
         self._pending_seq_id = 0
         self._free_blocks = list(range(self.num_cache_blocks))
+        self._block_refcounts: dict[int, int] = {}
         self._seq_to_blocks: dict[int, list[int]] = {}
         self._free_recurrent_slots = list(range(self.max_running_seqs))
         self._seq_to_recurrent_slot: dict[int, int] = {}
@@ -68,6 +81,8 @@ class InferenceBatchState:
 
         if not prompts:
             return []
+        if self.prompt_group_size > 1:
+            raise RuntimeError("cannot append prompts to a shared prompt batch")
         start = len(self.prompts)
         self.prompts.extend(prompts)
         self.prompt_features.extend(_normalize_prompt_features(prompt_features, len(prompts)))
@@ -171,7 +186,7 @@ class InferenceBatchState:
                             prefill_seq_ids,
                         )
                     )
-                blocks.append(self._free_blocks.pop(0))
+                blocks.append(self._allocate_block())
             chunk = prompt[cursor : cursor + chunk_len]
             prefill_seq_ids.append(seq_id)
             input_ids.extend(chunk)
@@ -210,10 +225,17 @@ class InferenceBatchState:
             recurrent_slots.append(self._seq_to_recurrent_slot[seq_id])
             cursor += chunk_len
             if cursor >= len(prompt):
-                sample_indices.append(len(input_ids) - 1)
-                active_ids.append(seq_id)
+                for offset in range(self.prompt_group_size):
+                    sample_id = seq_id + offset
+                    if offset:
+                        self._seq_to_blocks[sample_id] = list(blocks)
+                        for block in blocks:
+                            self._block_refcounts[block] += 1
+                        self._seq_to_recurrent_slot[sample_id] = self._free_recurrent_slots.pop(0)
+                    sample_indices.append(len(input_ids) - 1)
+                    active_ids.append(sample_id)
                 self._prefill_cursor_by_seq.pop(seq_id, None)
-                self._pending_seq_id += 1
+                self._pending_seq_id += self.prompt_group_size
             else:
                 self._prefill_cursor_by_seq[seq_id] = cursor
                 break
@@ -237,6 +259,51 @@ class InferenceBatchState:
             active_ids,
             prefill_seq_ids,
         )
+
+    def expand_shared_prefill(self, payload: dict) -> dict:
+        """Preserve the independent-request compute shape while storing KV once."""
+        group_size = self.prompt_group_size
+        seq_ids = payload["prefill_seq_ids"]
+        if group_size <= 1:
+            return payload
+        if len(self._last_active_ids) != len(seq_ids) * group_size:
+            raise RuntimeError("shared prompt KV requires complete prefill groups")
+
+        input_parts = []
+        position_parts = []
+        cu_seqlens = [0]
+        sample_indices = []
+        cache_write_indices = []
+        expanded_seq_ids = []
+        boundaries = payload["cu_seqlens"].tolist()
+        for index, seq_id in enumerate(seq_ids):
+            start, end = boundaries[index : index + 2]
+            if int(payload["position_ids"][start]) != 0:
+                raise RuntimeError("shared prompt KV does not support chunked prefill")
+            length = end - start
+            cache_write_indices.extend(range(cu_seqlens[-1], cu_seqlens[-1] + length))
+            for offset in range(group_size):
+                input_parts.append(payload["input_ids"][start:end])
+                position_parts.append(payload["position_ids"][start:end])
+                cu_seqlens.append(cu_seqlens[-1] + length)
+                sample_indices.append(cu_seqlens[-1] - 1)
+                expanded_seq_ids.append(seq_id + offset)
+
+        expanded = dict(payload)
+        expanded.update(
+            input_ids=torch.cat(input_parts),
+            position_ids=torch.cat(position_parts),
+            cu_seqlens=torch.tensor(cu_seqlens, dtype=torch.int32),
+            sample_indices=torch.tensor(sample_indices, dtype=torch.long),
+            block_table=payload["block_table"].repeat_interleave(group_size, dim=0),
+            recurrent_slots=torch.tensor(
+                [self._seq_to_recurrent_slot[seq_id] for seq_id in expanded_seq_ids], dtype=torch.long
+            ),
+            sequence_lengths=payload["sequence_lengths"].repeat_interleave(group_size),
+            prefill_seq_ids=expanded_seq_ids,
+            cache_write_indices=torch.tensor(cache_write_indices, dtype=torch.long),
+        )
+        return expanded
 
     def _prefill_payload(
         self,
@@ -285,20 +352,46 @@ class InferenceBatchState:
             )
         return payload
 
-    def ensure_decode_blocks(self, seq_ids: list[int], next_positions: list[int]) -> None:
-        """Allocate one decode KV block for rows whose next token starts a block."""
+    def _allocate_block(self) -> int:
+        block = self._free_blocks.pop(0)
+        self._block_refcounts[block] = 1
+        return block
 
+    def release_sequence_blocks(self, seq_id: int) -> None:
+        """Release each physical block only after its last sequence finishes."""
+        for block in self._seq_to_blocks.pop(seq_id, []):
+            remaining = self._block_refcounts[block] - 1
+            if remaining:
+                self._block_refcounts[block] = remaining
+            else:
+                del self._block_refcounts[block]
+                self._free_blocks.append(block)
+
+    def ensure_decode_blocks(self, seq_ids: list[int], next_positions: list[int]) -> list[tuple[int, int, int]]:
+        """Reserve decode blocks and return shared-tail copies to perform before writing."""
+
+        copies = []
         for seq_id, next_position in zip(seq_ids, next_positions, strict=True):
-            if next_position < 0 or next_position % self.kv_block_size != 0:
+            if next_position < 0:
                 continue
             blocks = self._seq_to_blocks.get(int(seq_id))
             if blocks is None:
                 continue
-            required_blocks = next_position // self.kv_block_size + 1
+            block_index, offset = divmod(next_position, self.kv_block_size)
+            required_blocks = block_index + 1
             while len(blocks) < required_blocks:
                 if not self._free_blocks:
                     raise RuntimeError("paged KV cache exhausted during decode")
-                blocks.append(self._free_blocks.pop(0))
+                blocks.append(self._allocate_block())
+            block = blocks[block_index]
+            if offset and self._block_refcounts[block] > 1:
+                if not self._free_blocks:
+                    raise RuntimeError("paged KV cache exhausted during copy-on-write")
+                private_block = self._allocate_block()
+                self._block_refcounts[block] -= 1
+                blocks[block_index] = private_block
+                copies.append((block, private_block, offset))
+        return copies
 
     def build_cache_reprefill_payload(
         self,
@@ -687,6 +780,11 @@ def payload_to_infer_meta(payload: dict, device: torch.device) -> InferMeta:
             block_table=payload["block_table"].to(device, non_blocking=True),
             cache_block_ids=payload["cache_block_ids"].to(device, non_blocking=True),
             cache_block_offsets=payload["cache_block_offsets"].to(device, non_blocking=True),
+            cache_write_indices=(
+                payload["cache_write_indices"].to(device, non_blocking=True)
+                if payload.get("cache_write_indices") is not None
+                else None
+            ),
             recurrent_slots=payload["recurrent_slots"].to(device, non_blocking=True),
         )
     # Decode runs one token per active sequence and reads previously written

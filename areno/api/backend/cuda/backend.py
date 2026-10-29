@@ -351,6 +351,7 @@ class CudaBackend(Backend):
         # Greedy decoding is implemented by forcing temperature to zero.
         rollout = engine.generate_rollout(
             flat_prompts,
+            prompt_group_size=n_samples,
             prompt_features=flat_features,
             max_new_tokens=sampling_params.max_new_tokens,
             max_running_prompts=options["max_running_prompts"],
@@ -461,6 +462,9 @@ class CudaBackend(Backend):
         prompts = expand_prompts(prompt_tokens, n_samples)
         flat_features = expand_prompt_features(prompt_features, len(prompt_tokens), n_samples)
         options = rollout_options(ctx, sampling_params)
+        runtime = getattr(getattr(engine, "config", None), "runtime", None)
+        if n_samples > 1 and getattr(runtime, "share_prompt_kv", False):
+            logger.warning("shared prompt KV does not support async rollouts; using independent caches")
         if self._step_e2e_start is None:
             self._step_e2e_start = time.perf_counter()
             self._step_rollout_time_s = 0.0

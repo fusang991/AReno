@@ -263,6 +263,7 @@ class InferenceManager:
                 max_prefill_tokens=int(payload.max_prefill_tokens),
                 kv_block_size=int(payload.block_size),
                 num_cache_blocks=int(payload.num_blocks),
+                prompt_group_size=int(payload.prompt_group_size),
                 prompt_features=payload.prompt_features_by_dp[ctx.dp_rank]
                 if payload.prompt_features_by_dp is not None
                 else None,
@@ -653,10 +654,12 @@ class InferenceManager:
 
         if active_rows.numel() == 0:
             return
-        state.ensure_decode_blocks(
+        copies = state.ensure_decode_blocks(
             [int(row) for row in active_rows.detach().cpu().tolist()],
             [int(pos) for pos in cache_seqlens.detach().cpu().tolist()],
         )
+        if copies:
+            self.model.copy_kv_cache_blocks(copies)
 
     def _cache_reprefill_mask(self, cache_seqlens: torch.Tensor) -> torch.Tensor:
         """Ask the active model whether any cached rows must be rebuilt."""
@@ -816,9 +819,7 @@ class InferenceManager:
         if reset_recurrent_slots is not None:
             reset_recurrent_slots(torch.tensor(recurrent_slots, device=self.device, dtype=torch.long))
         for row in row_ids:
-            blocks = state._seq_to_blocks.pop(row, None)
-            if blocks:
-                state._free_blocks.extend(blocks)
+            state.release_sequence_blocks(row)
             slot = state._seq_to_recurrent_slot.pop(row)
             state._free_recurrent_slots.append(slot)
 
@@ -863,6 +864,8 @@ class InferenceManager:
             prefill_payload = state.build_prefill_payload()
             if prefill_payload is None:
                 return None
+            if state.prompt_group_size > 1:
+                prefill_payload = state.expand_shared_prefill(prefill_payload)
             prefill = PrefillPayload.from_state_payload(
                 prefill_payload,
                 sampling_params=sampling_params,
@@ -901,7 +904,7 @@ class InferenceManager:
             state.decode_position_deltas(new_rows.detach().cpu().tolist()), device=self.device, dtype=torch.long
         )
         new_position_ids = new_cache_seqlens.to(torch.long) + new_position_deltas
-        new_block_table = prefill.block_table.to(self.device, non_blocking=True).int()
+        new_block_table = self._block_table_for_active_rows(state, new_rows)
         remove = torch.zeros(int(new_rows.numel()), device=self.device, dtype=torch.bool)
         finished = None
         if stop_token_tensor is not None:

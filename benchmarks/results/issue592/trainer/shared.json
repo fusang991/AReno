@@ -1,0 +1,128 @@
+{
+  "shared": true,
+  "dataset": {
+    "prompt": "Write a brief greeting in English.",
+    "task": "greeting"
+  },
+  "steps": [
+    {
+      "seed": 2026,
+      "metrics": {
+        "loss": -8.940696716308594e-08,
+        "policy_loss": -8.940696716308594e-08,
+        "total_loss": -8.940696716308594e-08,
+        "advantage_mean": 8.940696716308594e-08,
+        "response_len": 16.0,
+        "rollout_logprobs_mean": -1.9359033107757568,
+        "train_logprobs_mean": -1.9425705671310425,
+        "logp_diff_mean": 0.006667196750640869,
+        "logp_abs_diff_mean": 0.03420686721801758,
+        "lr": 0.0001,
+        "sequence_parallel": 0.0,
+        "grad_norm": 35.06684494018555,
+        "clipped_grad_norm": 35.06684494018555,
+        "ratio_mean": 1.0,
+        "ratio_std": 0.0,
+        "step_rollout_time_s": 1.029518007999286,
+        "step_train_time_s": 0.6250101629993878,
+        "step_e2e_time_s": 1.6546773949958151
+      },
+      "rewards": [
+        0.4296875,
+        0.3880208333333333,
+        0.4270833333333333,
+        0.4459635416666667
+      ],
+      "responses": [
+        " The greeting should be in standard English form and should not include any other information besides",
+        " It should include a name, date, and location. The name should be in",
+        " Maybe \"Hi there\" or \"Hello.\"\n\nYes, both are good. Let",
+        " | 120 characters or less.\nUse of verbs. No more than"
+      ]
+    },
+    {
+      "seed": 2027,
+      "metrics": {
+        "loss": -2.9802322387695312e-08,
+        "policy_loss": -2.9802322387695312e-08,
+        "total_loss": -2.9802322387695312e-08,
+        "advantage_mean": 2.9802322387695312e-08,
+        "response_len": 16.0,
+        "rollout_logprobs_mean": -0.7294883728027344,
+        "train_logprobs_mean": -0.7355504035949707,
+        "logp_diff_mean": 0.006062060594558716,
+        "logp_abs_diff_mean": 0.020724385976791382,
+        "lr": 0.0001,
+        "sequence_parallel": 0.0,
+        "grad_norm": 30.46426773071289,
+        "clipped_grad_norm": 30.46426773071289,
+        "ratio_mean": 1.0,
+        "ratio_std": 0.0,
+        "step_rollout_time_s": 0.46105427500151563,
+        "step_train_time_s": 0.41751663100149017,
+        "step_e2e_time_s": 0.8787098009925103
+      },
+      "rewards": [
+        0.486328125,
+        0.3177083333333333,
+        0.5188802083333334,
+        0.48828125
+      ],
+      "responses": [
+        " | 12 characters or less.\n 12 characters or less.\nUse",
+        " of more than 120 characters or less than 120 characters",
+        " | 5 or less.\n - 12 or less.\n | 2",
+        " - 12 or less.\n | 12 or less.\nNo more"
+      ]
+    }
+  ],
+  "repeat_comparison": {
+    "tokens_match": true,
+    "max_abs_logprob_error": 0.0,
+    "logprob_mismatches": 0,
+    "compared_logprobs": 64
+  },
+  "reload_comparison": {
+    "tokens_match": true,
+    "max_abs_logprob_error": 0.0,
+    "logprob_mismatches": 0,
+    "compared_logprobs": 64
+  },
+  "resumed_step": {
+    "seed": 2028,
+    "metrics": {
+      "loss": 0.0,
+      "policy_loss": 0.0,
+      "total_loss": 0.0,
+      "advantage_mean": 0.0,
+      "response_len": 16.0,
+      "rollout_logprobs_mean": -0.26436156034469604,
+      "train_logprobs_mean": -0.2610737979412079,
+      "logp_diff_mean": -0.003287762403488159,
+      "logp_abs_diff_mean": 0.012507647275924683,
+      "lr": 0.0001,
+      "sequence_parallel": 0.0,
+      "grad_norm": 98.66860961914062,
+      "clipped_grad_norm": 98.66860961914062,
+      "ratio_mean": 1.0,
+      "ratio_std": 0.0,
+      "step_rollout_time_s": 1.4541560570069123,
+      "step_train_time_s": 0.6263457669992931,
+      "step_e2e_time_s": 2.080727027001558
+    },
+    "rewards": [
+      0.4361979166666667,
+      0.4375,
+      0.4348958333333333,
+      0.4381510416666667
+    ],
+    "responses": [
+      " | 4.\n | 4.\n | 4.\n | 2.\n",
+      " | 5.\n | 4.\n | 4.\n | 3.\n",
+      " | 4.\n | 3.\n | 3.\n | 2.\n",
+      " | 4.\n | 4.\n | 5.\n | 4.\n"
+    ]
+  },
+  "checkpoint": "<local-checkpoint>",
+  "resume_note": "model weights reloaded; CUDA Trainer checkpoint does not restore optimizer state"
+}

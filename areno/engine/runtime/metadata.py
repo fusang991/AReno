@@ -47,6 +47,7 @@ class InferMeta:
     block_table: torch.Tensor | None = None
     cache_block_ids: torch.Tensor | None = None
     cache_block_offsets: torch.Tensor | None = None
+    cache_write_indices: torch.Tensor | None = None
     recurrent_slots: torch.Tensor | None = None
     capture_routing: bool = False
     captured_routing: dict[int, torch.Tensor] | None = None

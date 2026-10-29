@@ -1,0 +1,128 @@
+{
+  "shared": false,
+  "dataset": {
+    "prompt": "Write a brief greeting in English.",
+    "task": "greeting"
+  },
+  "steps": [
+    {
+      "seed": 2026,
+      "metrics": {
+        "loss": -8.940696716308594e-08,
+        "policy_loss": -8.940696716308594e-08,
+        "total_loss": -8.940696716308594e-08,
+        "advantage_mean": 8.940696716308594e-08,
+        "response_len": 16.0,
+        "rollout_logprobs_mean": -1.9359033107757568,
+        "train_logprobs_mean": -1.9425705671310425,
+        "logp_diff_mean": 0.006667196750640869,
+        "logp_abs_diff_mean": 0.03420686721801758,
+        "lr": 0.0001,
+        "sequence_parallel": 0.0,
+        "grad_norm": 35.06685256958008,
+        "clipped_grad_norm": 35.06685256958008,
+        "ratio_mean": 1.0,
+        "ratio_std": 0.0,
+        "step_rollout_time_s": 1.0287863989942707,
+        "step_train_time_s": 0.6108503040013602,
+        "step_e2e_time_s": 1.6397617990005529
+      },
+      "rewards": [
+        0.4296875,
+        0.3880208333333333,
+        0.4270833333333333,
+        0.4459635416666667
+      ],
+      "responses": [
+        " The greeting should be in standard English form and should not include any other information besides",
+        " It should include a name, date, and location. The name should be in",
+        " Maybe \"Hi there\" or \"Hello.\"\n\nYes, both are good. Let",
+        " | 120 characters or less.\nUse of verbs. No more than"
+      ]
+    },
+    {
+      "seed": 2027,
+      "metrics": {
+        "loss": 5.960464477539063e-08,
+        "policy_loss": 5.960464477539063e-08,
+        "total_loss": 5.960464477539063e-08,
+        "advantage_mean": -5.960464477539063e-08,
+        "response_len": 16.0,
+        "rollout_logprobs_mean": -0.7663449048995972,
+        "train_logprobs_mean": -0.7749167680740356,
+        "logp_diff_mean": 0.008571863174438477,
+        "logp_abs_diff_mean": 0.018547654151916504,
+        "lr": 0.0001,
+        "sequence_parallel": 0.0,
+        "grad_norm": 31.107229232788086,
+        "clipped_grad_norm": 31.107229232788086,
+        "ratio_mean": 1.0,
+        "ratio_std": 0.0,
+        "step_rollout_time_s": 0.45433295700058807,
+        "step_train_time_s": 0.44637892600439955,
+        "step_e2e_time_s": 0.9008116790064378
+      },
+      "rewards": [
+        0.4557291666666667,
+        0.3177083333333333,
+        0.5188802083333334,
+        0.455078125
+      ],
+      "responses": [
+        " | 12 characters or less.\n 12 or less.\nNo more",
+        " of more than 120 characters or less than 120 characters",
+        " | 5 or less.\n - 12 or less.\n | 2",
+        " 10 or less.\n - 10 or less of more than five"
+      ]
+    }
+  ],
+  "repeat_comparison": {
+    "tokens_match": true,
+    "max_abs_logprob_error": 0.0,
+    "logprob_mismatches": 0,
+    "compared_logprobs": 64
+  },
+  "reload_comparison": {
+    "tokens_match": true,
+    "max_abs_logprob_error": 0.0,
+    "logprob_mismatches": 0,
+    "compared_logprobs": 64
+  },
+  "resumed_step": {
+    "seed": 2028,
+    "metrics": {
+      "loss": -8.940696716308594e-08,
+      "policy_loss": -8.940696716308594e-08,
+      "total_loss": -8.940696716308594e-08,
+      "advantage_mean": 8.940696716308594e-08,
+      "response_len": 16.0,
+      "rollout_logprobs_mean": -0.5267091989517212,
+      "train_logprobs_mean": -0.5237289667129517,
+      "logp_diff_mean": -0.0029802024364471436,
+      "logp_abs_diff_mean": 0.023470908403396606,
+      "lr": 0.0001,
+      "sequence_parallel": 0.0,
+      "grad_norm": 62.34260559082031,
+      "clipped_grad_norm": 62.34260559082031,
+      "ratio_mean": 1.0,
+      "ratio_std": 0.0,
+      "step_rollout_time_s": 1.46357567999803,
+      "step_train_time_s": 0.6089491640013875,
+      "step_e2e_time_s": 2.072715807997156
+    },
+    "rewards": [
+      0.3951822916666667,
+      0.482421875,
+      0.4381510416666667,
+      0.41796875
+    ],
+    "responses": [
+      " | 3.\n |  4.\n  4.\n |  ",
+      " | 4 or less | 4.\n | 4.\n | 2",
+      " | 3.\n - 3.\n |  4.\n |  ",
+      " | 3\n | 4.\n - 2.\n | 3.\n"
+    ]
+  },
+  "checkpoint": "<local-checkpoint>",
+  "resume_note": "model weights reloaded; CUDA Trainer checkpoint does not restore optimizer state"
+}

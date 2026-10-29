@@ -31,6 +31,7 @@ AReno documentation
    Multimodal Inputs <concepts/multimodal-inputs>
    Native LoRA <concepts/native-lora>
    8-bit AdamW <concepts/adamw-8bit>
+   Shared Prompt KV A100 measurements <concepts/shared_prompt_kv_results>
    4-bit AdamW <concepts/adamw-4bit>
    Reward Functions <concepts/reward-functions>
 

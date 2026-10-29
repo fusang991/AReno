@@ -368,10 +368,9 @@ class Qwen3ForCausalLM(nn.Module):
         self.embed_tokens = VocabParallelEmbedding(config.vocab_size, config.hidden_size, dtype=config.dtype)
         self.layers = nn.ModuleList([QwenDecoderLayer(config, i) for i in range(config.num_hidden_layers)])
         self.norm = RMSNorm(config.hidden_size, config.rms_norm_eps)
-        # Optional weight tying with embed_tokens is wired up by the runtime
-        # based on config.tie_word_embeddings; LM head allocates its own weight
-        # otherwise.
         self.lm_head = VocabParallelLMHead(config.hidden_size, config.vocab_size, dtype=config.dtype)
+        if config.tie_word_embeddings:
+            self.lm_head.weight = self.embed_tokens.weight
 
     def forward(
         self,
@@ -415,6 +414,15 @@ class Qwen3ForCausalLM(nn.Module):
             raise ValueError(f"expected {len(self.layers)} layer caches, got {len(kv_caches)}")
         for layer, (k_cache, v_cache) in zip(self.layers, kv_caches, strict=True):
             layer.self_attn.set_kv_cache(k_cache, v_cache)
+
+    @torch.no_grad()
+    def copy_kv_cache_blocks(self, copies: list[tuple[int, int, int]]) -> None:
+        """Copy the populated prefix of shared tail blocks before decode writes."""
+        for layer in self.layers:
+            attention = layer.self_attn
+            for source, destination, length in copies:
+                attention.k_cache[destination, :length].copy_(attention.k_cache[source, :length])
+                attention.v_cache[destination, :length].copy_(attention.v_cache[source, :length])
 
     @torch.no_grad()
     def prepare_infer_weights(self) -> None:

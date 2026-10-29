@@ -75,6 +75,7 @@ class RuntimeConfig:
         default_factory=lambda: [1, 2, 4, 8, 12, 16, 24, 32, 40, 48, 56, 64, 96, 128, 192, 256]
     )
     device_type: Literal["cuda", "npu"] = field(default="cuda", kw_only=True)
+    share_prompt_kv: bool = field(default=False, kw_only=True)
 
     def __post_init__(self) -> None:
         if self.device_type not in {"cuda", "npu"}:

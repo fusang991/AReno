@@ -405,6 +405,18 @@ Data classes
       falls back to native attention on flash-attn-unsupported GPUs such as
       Tesla T4 and prints a warning. The default is ``"flash"`` for normal
       high-throughput training on supported GPUs.
+
+      Set ``runtime={"share_prompt_kv": True}`` to share prompt KV among
+      multiple samples within one synchronous rollout. This experimental path
+      supports a single CUDA GPU and the dense, text-only Qwen3 model. All
+      samples in the call must fit within ``max_running_prompts``. Other model
+      families, multimodal features, distributed layouts, oversized batches,
+      and asynchronous rollouts use independent caches and emit a warning.
+      The prefill computes each sample using the independent-request batch shape
+      to preserve numerical agreement, but stores only one copy of prompt KV.
+      The cache belongs to one rollout only and is never reused after a policy
+      update. An existing larger KV allocation can be reused, so begin with a
+      fresh trainer when measuring its memory savings.
    :param int max_running_prompts: Concurrent rollout prompt limit.
    :param float decode_progress_interval_s: Worker decode progress log
       interval. Logs report per-DP scheduled decode throughput for the current

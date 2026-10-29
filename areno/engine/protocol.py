@@ -90,6 +90,7 @@ class RolloutPayload:
     decode_progress_interval_s: float = 0.0
     cancel_flags: torch.Tensor | None = None
     cancel_indices_by_dp: list[list[int]] | None = None
+    prompt_group_size: int = 1
 
 
 @dataclass(slots=True)

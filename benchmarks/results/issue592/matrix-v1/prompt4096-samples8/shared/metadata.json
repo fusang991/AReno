@@ -1,0 +1,21 @@
+{
+  "commit": "74cdb6be6860ce15b0590ff22f1b0fe0aa005298",
+  "model_revision": "09b42cad3d112e832108974449ccb5e8e0f5b5d1",
+  "model_sha256": "f47f71177f32bcd101b7573ec9171e6a57f4f4d31148d38e382306f42996874b",
+  "model_path": "ModelScope:Qwen/Qwen3-0.6B@09b42cad3d112e832108974449ccb5e8e0f5b5d1",
+  "torch": "2.13.0+cu130",
+  "torch_cuda": "13.0",
+  "gpu": "NVIDIA A100-SXM4-40GB",
+  "prompt_length": 4096,
+  "samples": 8,
+  "max_new_tokens": 16,
+  "warmup": 2,
+  "steps": 10,
+  "seed": 1234,
+  "dtype": "bf16",
+  "replay": true,
+  "shared": true,
+  "attention_backend": "native",
+  "compile_model": false,
+  "eager_decode": true
+}
